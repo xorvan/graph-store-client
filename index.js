@@ -1,6 +1,7 @@
 var utile = require('utile')
 	, url = require('url')
 	, Q = require('q')
+	, jsonld = require('jsonld').promises()
 	, rest = require('rest')
 
 var jsonConverter = require("rest/mime/type/application/json");
@@ -39,9 +40,12 @@ var GraphStoreClient = module.exports = function(endpoint, graphStoreEndpoint){
 
 	this.endpoint = endpoint;
 	this.graphStoreEndpoint = graphStoreEndpoint;
-	this._ns = {};
+	this._ns = {
+		"rdf:": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+		"ldp:": "http://www.w3.org/ns/ldp#"
+	};
 	this._request = rest
-		.chain(require("rest/interceptor/mime"), {accept: "application/ld+json,application/sparql-results+json,application/json", mime:"text/x-nquads"})
+		.chain(require("rest/interceptor/mime"), {accept: "application/ld+json,application/sparql-results+json,application/json,*/*", mime:"text/x-nquads"})
 		.chain(sparqlInterceptor())
 	this._del_request = rest
 		.chain(sparqlInterceptor())
@@ -122,6 +126,16 @@ GraphStoreClient.prototype = {
 		}
 
 		this._ns[prefix+":"] = iri;
+	},
+	resolve: function(iri){
+		var parts = /(.*:)(.*)/.exec(iri);
+		if(parts){
+			if(!this._ns[parts[1]]){
+				throw new Error("Unknown prefix: " + parts[1]);
+			}
+			return this._ns[parts[1]] + parts[2]
+		}
+		return iri.iri(this.base);
 	}
 }
 
@@ -146,7 +160,7 @@ function sparqlInterceptor(){
 
 }
 
-String.prototype.iri = function(base){
-	var v = base ? url.resolve(base, this) : this;
-	return "<" + this + ">";
+String.prototype.iri = function(base, bare){
+	var v = base ? url.resolve(base, this + "") : this +"";
+	return bare ? v : "<" + v + ">";
 }
