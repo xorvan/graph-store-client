@@ -3,6 +3,8 @@ var utile = require('utile')
 	, Q = require('q')
 	, jsonld = require('jsonld').promises()
 	, rest = require('rest')
+	, Resolver = require('./Resolver')
+;
 
 var jsonConverter = require("rest/mime/type/application/json");
 var textConverter = require("rest/mime/type/text/plain")
@@ -40,10 +42,7 @@ var GraphStoreClient = module.exports = function(endpoint, graphStoreEndpoint){
 
 	this.endpoint = endpoint;
 	this.graphStoreEndpoint = graphStoreEndpoint;
-	this._ns = {
-		"rdf:": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
-		"ldp:": "http://www.w3.org/ns/ldp#"
-	};
+	this.ns = new Resolver;
 	this._request = rest
 		.chain(require("rest/interceptor/mime"), {accept: "application/ld+json,application/sparql-results+json,application/json,*/*", mime:"text/x-nquads"})
 		.chain(sparqlInterceptor())
@@ -58,15 +57,16 @@ GraphStoreClient.prototype = {
 				sparql = sparql.replace(new RegExp('(\\?|\\$)('+i+')', 'g'), bindings[i]);
 			}
 		}
-		var prefixes = this.base ? utile.format("BASE <%s>\n", this.base) : "";
-		for(var i in this._ns){
-			prefixes += utile.format("PREFIX %s <%s>\n", i, this._ns[i]);
+		var prefixes = this.ns.base ? utile.format("BASE <%s>\n", this.ns.base) : "";
+		for(var i in this.ns.prefixes){
+			prefixes += utile.format("PREFIX %s <%s>\n", i, this.ns.prefixes[i]);
 		}
 		sparql = prefixes + sparql;
 		console.log(sparql);
 		return this._request({
 			path: this.endpoint,
-			params: {query: sparql}
+			params: {query: sparql},
+			headers: {"SD-Connection-String": "reasoning=SL"}
 		});
 	},
 	put: function(iri, graph, type){
@@ -81,7 +81,7 @@ GraphStoreClient.prototype = {
 				method: "PUT",
 				path: self.graphStoreEndpoint,
 				headers: {"Content-Type": type},
-				params: {graph: url.resolve(self.base, iri)},
+				params: {graph: url.resolve(self.ns.base, iri)},
 				entity: graph
 			});
 		});
@@ -98,7 +98,7 @@ GraphStoreClient.prototype = {
 				method: "POST",
 				path: self.graphStoreEndpoint,
 				headers: {"Content-Type": type},
-				params: {graph: url.resolve(self.base, iri)},
+				params: {graph: url.resolve(self.ns.base, iri)},
 				entity: graph
 			});
 		});
@@ -108,7 +108,7 @@ GraphStoreClient.prototype = {
 		return this._del_request({
 			method: "DELETE",
 			path: this.graphStoreEndpoint,
-			params: {graph: url.resolve(this.base, iri)},
+			params: {graph: url.resolve(this.ns.base, iri)},
 		});
 	},
 	get: function(iri){
@@ -116,26 +116,8 @@ GraphStoreClient.prototype = {
 		({
 			method: "GET",
 			path: this.graphStoreEndpoint,
-			params: {graph: url.resolve(this.base, iri)},
+			params: {graph: url.resolve(this.ns.base, iri)},
 		});
-	},
-	register: function(prefix, iri){
-		if(arguments.length <2){
-			iri = prefix;
-			prefix = "";
-		}
-
-		this._ns[prefix+":"] = iri;
-	},
-	resolve: function(iri){
-		var parts = /(.*:)(.*)/.exec(iri);
-		if(parts){
-			if(!this._ns[parts[1]]){
-				throw new Error("Unknown prefix: " + parts[1]);
-			}
-			return this._ns[parts[1]] + parts[2]
-		}
-		return iri.iri(this.base);
 	}
 }
 
