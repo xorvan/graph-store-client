@@ -158,6 +158,7 @@ function sparqlInterceptor(){
 								var decoder = new StringDecoder('utf8');
 								var entity = response.entity + ""
 								entity = unescape(entity.replace(/\\u/g, '%u') );
+								console.log("ENTITY", entity)
                 return response.headers['Content-Type'].indexOf('text/plain') == 0 ? jsonld.fromRDF(entity, {format: 'application/nquads'}) : response.entity;
             }
     });
@@ -167,4 +168,8 @@ function sparqlInterceptor(){
 String.prototype.iri = function(base, bare){
 	var v = base ? url.resolve(base, this + "") : this +"";
 	return bare ? v : "<" + v + ">";
+}
+
+String.prototype.lit = function(){
+	return '"' + this + '"';
 }
