@@ -1,5 +1,6 @@
 var utile = require('utile')
 	, url = require('url')
+	, debug = require("debug")("graph-store-client")
 	, Q = require('q')
 	, jsonld = require('jsonld').promises()
 	, rest = require('rest')
@@ -72,7 +73,7 @@ GraphStoreClient.prototype = {
 		}
 		sparql = prefixes + sparql;
 
-		console.log(sparql);
+		debug("Running SPARQL: %s", sparql);
 		return rest
 		.chain(require("rest/interceptor/mime"), {accept: "application/ld+json,text/plain,application/sparql-results+json,application/json,*/*", mime: type+";charset=UTF-8"})
 		.chain(sparqlInterceptor())
@@ -83,7 +84,10 @@ GraphStoreClient.prototype = {
 			headers: {
 				"Accept-Charset": "utf-8"
 			}
-		});
+		})
+		.catch(function(e){
+			throw new Error("SPARQL Endpoint Error: (" + e.status + ") "+ e.message);
+		})
 	},
 	put: function(iri, graph, type){
 		var type = type || "text/turtle", self = this;
@@ -137,6 +141,15 @@ GraphStoreClient.prototype = {
 	}
 }
 
+function debugInterceptor(){
+	return require('rest/interceptor')({
+		response: function (response) {
+				debug("SPARQL Result Response:", response.entity);
+				return response;
+		}
+	});
+}
+
 function sparqlInterceptor(){
     return require('rest/interceptor')({
             response: function (response) {
@@ -158,7 +171,8 @@ function sparqlInterceptor(){
 								var decoder = new StringDecoder('utf8');
 								var entity = response.entity + ""
 								entity = unescape(entity.replace(/\\u/g, '%u') );
-								console.log("ENTITY", entity)
+
+								debug("SPARQL Result Entity:", entity)
                 return response.headers['Content-Type'].indexOf('text/plain') == 0 ? jsonld.fromRDF(entity, {format: 'application/nquads'}) : response.entity;
             }
     });
@@ -167,7 +181,7 @@ function sparqlInterceptor(){
 
 String.prototype.iri = function(base, bare){
 	var v = base ? url.resolve(base, this + "") : this +"";
-	return bare ? v : "<" + v + ">";
+	return bare ? v : "<" + decodeURI(v) + ">";
 }
 
 String.prototype.lit = function(){

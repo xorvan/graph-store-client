@@ -24,7 +24,7 @@
     "utile": "~0.2.0",
     "q": "~0.9.7",
     "rest": "inanidea/rest",
-    "jsonld": "*"
+    "jsonld": "*",
+    "debug": "^1.0.3"
   }
-
 }
