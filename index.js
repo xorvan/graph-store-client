@@ -29,12 +29,11 @@ var sparqlXmlConverter = {
 	    return obj;
 	}
 };
-
 var registry = require("rest/mime/registry");
 
 registry.register("application/ld+json", jsonConverter)
 registry.register("application/sparql-results+json", sparqlJsonConverter)
-registry.register("application/sparql-results+xml", sparqlXmlConverter)
+// registry.register("application/sparql-results+xml", sparqlXmlConverter)
 
 registry.register("application/nquads", textConverter)
 registry.register("text/x-nquads", textConverter)
@@ -48,10 +47,10 @@ var GraphStoreClient = module.exports = function(endpoint, graphStoreEndpoint){
 	this.graphStoreEndpoint = graphStoreEndpoint;
 	this.ns = new Resolver;
 	this._request = rest
-		.chain(require("rest/interceptor/mime"), {accept: "application/ld+json,application/x-trig,application/sparql-results+json,application/json,*/*", mime: "application/sparql-query"})
-		.chain(sparqlInterceptor())
+		.wrap(require("rest/interceptor/mime"), {accept: "application/ld+json,application/x-trig,application/sparql-results+json,application/json,*/*", mime: "application/sparql-query"})
+		.wrap(sparqlInterceptor())
 	this._del_request = rest
-		.chain(sparqlInterceptor())
+		.wrap(sparqlInterceptor())
 }
 
 GraphStoreClient.prototype = {
@@ -75,8 +74,9 @@ GraphStoreClient.prototype = {
 
 		debug("Running SPARQL: %s", sparql);
 		return rest
-		.chain(require("rest/interceptor/mime"), {accept: "application/ld+json,text/plain,application/sparql-results+json,application/json,*/*", mime: type+";charset=UTF-8"})
-		.chain(sparqlInterceptor())
+		// .wrap(debugInterceptor())
+		.wrap(require("rest/interceptor/mime"), {accept: "application/ld+json,text/plain,application/sparql-results+json,application/json,*/*", mime: type+";charset=UTF-8"})
+		.wrap(sparqlInterceptor())
 		({
 			path: this.endpoint,
 			mime: type,
@@ -144,7 +144,7 @@ GraphStoreClient.prototype = {
 function debugInterceptor(){
 	return require('rest/interceptor')({
 		response: function (response) {
-				debug("SPARQL Result Response:", response.entity);
+				debug("SPARQL Result Response:", response);
 				return response;
 		}
 	});
@@ -154,9 +154,11 @@ function sparqlInterceptor(){
     return require('rest/interceptor')({
             response: function (response) {
 								if(response.error){
+									debug("SPARQL response Error", response.error)
 									return Q.reject(response.error);
 								}
                 if (response.status && response.status.code >= 400) {
+									debug("SPARQL response Code >=400", response.status)
 	            		var e = {
 	            			message: "SPARQL Endpoint Error:" + response.status.code + " " + response.entity,
 	            			stack: "Request:\n" +

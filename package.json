@@ -22,8 +22,8 @@
   },
   "dependencies": {
     "utile": "~0.2.0",
-    "q": "~0.9.7",
-    "rest": "inanidea/rest",
+    "q": "^1",
+    "rest": "~1.1.1",
     "jsonld": "*",
     "debug": "^1.0.3"
   }
